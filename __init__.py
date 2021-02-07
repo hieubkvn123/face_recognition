@@ -17,11 +17,11 @@ def get_threshold(embs, labels, distance='cosine'):
 
 	for i, label in enumerate(labels):
 		dist = dist_matrix[i]
-		dist = dist[np.where(labels != label)]
+		dist = dist[np.where(labels == label)]
 		dist = 1 - dist 
 		# print(dist)
 		
-		sigma = dist[np.argmax(dist)]
+		sigma = dist[np.argmin(dist)]
 		sigmas.append(sigma)
 
 	return sigmas
@@ -112,7 +112,7 @@ class FaceRecognizer(object):
 		return identity
 
 	def start_standalone_app(self, video=None):
-		videoSrc = 0
+		videoSrc = 2
 		if(video is not None):
 			videoSrc = video 
 
@@ -120,9 +120,9 @@ class FaceRecognizer(object):
 
 		while(True):
 			frame = vs.read() 
-			if(video is None):
-				frame = cv2.flip(frame, flipCode=1)
-				frame = cv2.flip(frame, flipCode=0)
+			#if(video is None):
+			#	frame = cv2.flip(frame, flipCode=1)
+			#	frame = cv2.flip(frame, flipCode=0)
 
 			faces, locations = detect_and_align(frame)
 			for face, location in zip(faces, locations):
@@ -154,7 +154,7 @@ class FaceRecognizer(object):
 		cv2.destroyAllWindows()
 
 	def register(self, name, video=None):
-		videoSrc = 0
+		videoSrc = 2
 		if(video is not None):
 			videoSrc = video 
 
@@ -176,9 +176,9 @@ class FaceRecognizer(object):
 
 		while(True):
 			ret, frame = vid.read()
-			if(video is None):
-				frame = cv2.flip(frame, flipCode=1)
-				frame = cv2.flip(frame, flipCode=0)
+			#if(video is None):
+			#	frame = cv2.flip(frame, flipCode=1)
+			#	frame = cv2.flip(frame, flipCode=0)
 
 			### Detection and alignment ###
 			faces, locations = detect_and_align(frame)
