@@ -41,7 +41,7 @@ labels = np.array(labels)
 assert(images.shape[0] == labels.shape[0])
 
 embeddings = facenet.predict(images)
-# embeddings /= np.linalg.norm(embeddings, axis=1).reshape(-1, 1)
+embeddings /= np.linalg.norm(embeddings, axis=1).reshape(-1, 1)
 embeddings_pca = PCA(n_components = 3).fit_transform(embeddings)
 embeddings_pca_norm = embeddings_pca / np.linalg.norm(embeddings_pca, axis=1).reshape(-1, 1)
 
