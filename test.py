@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import matplotlib
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 
 from models import facenet
 from sklearn.decomposition import PCA
