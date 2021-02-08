@@ -8,6 +8,7 @@ import tensorflow as tf
 from imutils.video import WebcamVideoStream
 from scipy.spatial.distance import cdist
 
+from .clf import EmbeddingClassifier
 from .models import facenet
 from .detect_utils import detect_and_align
 
@@ -34,6 +35,7 @@ class FaceRecognizer(object):
 
 		print('[INFO] Loading model ... ')
 		facenet.load_weights(weights_path)
+		self.clf = EmbeddingClassifier(registration_folder=registration_folder)
 		self.model = tf.keras.models.Model(inputs=facenet.inputs[0], outputs=facenet.get_layer('emb_output').output)
 
 		if(registration_folder is None):
@@ -95,6 +97,21 @@ class FaceRecognizer(object):
 
 		return bad_lighting
 
+	def clf_recognize(self, face):
+		''' Using the clf model to recognize '''
+		identity = 'Unknown'
+		### Get embeddings from face ###
+		embedding = self.model.predict(np.array([face]))
+		embedding = embedding / np.linalg.norm(embedding, axis=1).reshape(-1, 1)
+
+		label = self.clf.model.predict(embedding)[0]
+		probability = self.clf.model.predict_proba(embedding)[0]
+		probability = probability[np.argmax(probability)]
+
+		# print(label, probability)
+
+		return label, probability
+
 	def recognize(self, face):
 		identity = 'Unknown'
 		### Get embeddings from face ###
@@ -139,7 +156,9 @@ class FaceRecognizer(object):
 				elif(bad_light_):
 					label = 'BAD_LIGHTING'
 				else:
-					label = self.recognize(self._face_preprocessing(face))
+					# label = self.recognize(self._face_preprocessing(face))
+					label, probability = self.clf_recognize(self._face_preprocessing(face))
+					label = '%s - %.2f' % (label, probability)
 
 				color = (0,255,0) if (blur_ != True and bad_light_ != True) else (0,0,255) 
 
