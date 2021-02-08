@@ -130,13 +130,17 @@ class FaceRecognizer(object):
 
 	def start_standalone_app(self, video=None):
 		videoSrc = 0
-		if(video is not None):
-			videoSrc = video 
-
 		vs = WebcamVideoStream(src=videoSrc).start()
 
+		if(video is not None):
+			videoSrc = video 
+			vs = cv2.VideoCapture(videoSrc)
+
 		while(True):
-			frame = vs.read() 
+			if(video is not None):
+				ret, frame = vs.read()
+			else:
+				frame = vs.read() 
 			#if(video is None):
 			#	frame = cv2.flip(frame, flipCode=1)
 			#	frame = cv2.flip(frame, flipCode=0)
