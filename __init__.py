@@ -129,7 +129,7 @@ class FaceRecognizer(object):
 		return identity
 
 	def start_standalone_app(self, video=None):
-		videoSrc = 2
+		videoSrc = 0
 		if(video is not None):
 			videoSrc = video 
 

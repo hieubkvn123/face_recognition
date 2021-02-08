@@ -8,9 +8,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 class EmbeddingClassifier(object):
-	def __init__(self, registration_folder=None):
+	def __init__(self, registration_folder=None, model_path='clf.pickle'):
 		super(EmbeddingClassifier, self).__init__()
 		self.base_path = os.path.dirname(os.path.realpath(__file__))
+		self.model_path = os.path.join(self.base_path, model_path)
 
 		if(registration_folder is None):
 			self.registration_folder = os.path.join(self.base_path, 'identities')
@@ -40,7 +41,20 @@ class EmbeddingClassifier(object):
 
 		self.embeddings = np.array(self.embeddings)
 		self.labels = np.array(self.labels)
-		X_train, X_test, Y_train, Y_test = train_test_split(self.embeddings, self.labels, test_size=0.333)
+
+		### Check if the model already exists ###
+		if(not os.path.exists(self.model_path)):
+			print('[INFO] Classifier model not created, training classifier model ... ')
+			self._train(self.embeddings, self.labels)
+		else:
+			print('[INFO] Classifier model exists, loading model ... ')
+			self.model = pickle.load(open(self.model_path, 'rb'))
+			if(sorted(self.model.classes_) != sorted(np.unique(self.labels))):
+				print('[INFO] Identities list changed, retraining classifier model ... ')
+				self._train(self.embeddings, self.labels)
+
+	def _train(self, embeddings, labels):
+		X_train, X_test, Y_train, Y_test = train_test_split(embeddings, labels, test_size=0.333)
 
 		self.model = SVC(kernel='rbf', probability=True)
 		self.model.fit(X_train, Y_train)
@@ -53,4 +67,6 @@ class EmbeddingClassifier(object):
 
 		print('[INFO] Train accuracy = %.2f, Test accuracy = %.2f' % (train_acc, test_acc))
 
-		# print(self.embeddings, self.labels)
+		### Saving the model ###
+		print('[INFO] Saving classifier model to %s' % self.model_path)
+		pickle.dump(self.model, open(self.model_path, 'wb'))
