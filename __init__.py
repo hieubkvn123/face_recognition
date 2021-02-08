@@ -141,28 +141,33 @@ class FaceRecognizer(object):
 			#	frame = cv2.flip(frame, flipCode=1)
 			#	frame = cv2.flip(frame, flipCode=0)
 
-			faces, locations = detect_and_align(frame)
-			for face, location in zip(faces, locations):
-				x1, y1, x2, y2 = location 
-				cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 1)
+			# if(frame is None): continue
+			try:
+				faces, locations = detect_and_align(frame)
+				for face, location in zip(faces, locations):
+					x1, y1, x2, y2 = location 
+					cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 1)
 
-				### Check image quality ###
-				blur_ = self._is_blur(face)
-				bad_light_ = self._is_bad_lighting(face)
+					### Check image quality ###
+					blur_ = self._is_blur(face)
+					bad_light_ = self._is_bad_lighting(face)
 
-				label = None
-				if(blur_):
-					label = 'BLURRY'
-				elif(bad_light_):
-					label = 'BAD_LIGHTING'
-				else:
-					# label = self.recognize(self._face_preprocessing(face))
-					label, probability = self.clf_recognize(self._face_preprocessing(face))
-					label = '%s - %.2f' % (label, probability)
+					label = None
+					if(blur_):
+						label = 'BLURRY'
+					elif(bad_light_):
+						label = 'BAD_LIGHTING'
+					else:
+						# label = self.recognize(self._face_preprocessing(face))
+						label, probability = self.clf_recognize(self._face_preprocessing(face))
+						label = '%s - %.2f' % (label, probability)
 
-				color = (0,255,0) if (blur_ != True and bad_light_ != True) else (0,0,255) 
+					color = (0,255,0) if (blur_ != True and bad_light_ != True) else (0,0,255) 
 
-				cv2.putText(frame, label, (x1,y1), cv2.FONT_HERSHEY_DUPLEX, 0.5, color, 2)
+					cv2.putText(frame, label, (x1,y1), cv2.FONT_HERSHEY_DUPLEX, 0.5, color, 2)
+
+			except:
+				print(frame)	
 
 			cv2.imshow('Frame', frame)
 			key = cv2.waitKey(1)
