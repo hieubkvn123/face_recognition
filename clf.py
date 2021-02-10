@@ -42,6 +42,9 @@ class EmbeddingClassifier(object):
 		self.embeddings = np.array(self.embeddings)
 		self.labels = np.array(self.labels)
 
+		if(len(np.unique(self.labels)) < 2):
+			raise Exception('Please register at least two identities ... ')
+
 		### Check if the model already exists ###
 		if(not os.path.exists(self.model_path)):
 			print('[INFO] Classifier model not created, training classifier model ... ')

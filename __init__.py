@@ -35,7 +35,11 @@ class FaceRecognizer(object):
 
 		print('[INFO] Loading model ... ')
 		facenet.load_weights(weights_path)
-		self.clf = EmbeddingClassifier(registration_folder=registration_folder)
+		try:
+			self.clf = EmbeddingClassifier(registration_folder=registration_folder)
+		except:
+			print('[INFO] Not enough idx to create classifier ... ')
+
 		self.model = tf.keras.models.Model(inputs=facenet.inputs[0], outputs=facenet.get_layer('emb_output').output)
 
 		if(registration_folder is None):
@@ -129,7 +133,7 @@ class FaceRecognizer(object):
 		return identity
 
 	def start_standalone_app(self, video=None):
-		videoSrc = 0
+		videoSrc = 2
 		vs = WebcamVideoStream(src=videoSrc).start()
 
 		if(video is not None):
@@ -162,9 +166,11 @@ class FaceRecognizer(object):
 					elif(bad_light_):
 						label = 'BAD_LIGHTING'
 					else:
-						# label = self.recognize(self._face_preprocessing(face))
-						label, probability = self.clf_recognize(self._face_preprocessing(face))
-						label = '%s - %.2f' % (label, probability)
+						if(self.clf is not None):
+							label, probability = self.clf_recognize(self._face_preprocessing(face))
+							label = '%s - %.2f' % (label, probability)
+						else:
+							label = self.recognize(self._face_preprocessing(face))
 
 					color = (0,255,0) if (blur_ != True and bad_light_ != True) else (0,0,255) 
 
@@ -260,3 +266,9 @@ class FaceRecognizer(object):
 		self.__init__()
 		vid.release()
 		cv2.destroyAllWindows()
+
+		### Rebuild the classifier ###
+		try:
+			self.clf = EmbeddingClassifier(registration_folder=registration_folder)
+		except:
+			print('[INFO] Not enough idx to create classifier ... ')
