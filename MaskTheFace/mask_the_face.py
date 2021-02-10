@@ -114,7 +114,7 @@ for i, entry in enumerate(mask_code):
 
 # Check if path is file or directory or none
 is_directory, is_file, is_other = check_path(args.path)
-display_MaskTheFace()
+# display_MaskTheFace()
 
 if is_directory:
     path, dirs, files = os.walk(args.path).__next__()

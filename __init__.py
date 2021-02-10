@@ -221,6 +221,19 @@ class FaceRecognizer(object):
 			shutil.rmtree(full_path)
 			print('[INFO] ID at %s is removed ... ' % full_path)
 
+	def _register_with_mask(self, img_dir, output_dir):
+		mask_the_face_folder = os.path.join(self.base_path, 'MaskTheFace')
+		mask_types = ['surgical', 'cloth']
+
+		for i, img_file in enumerate(glob.glob(img_dir + '/*.jpg')):
+			cmd = "cd {} && python3 mask_the_face.py --path {} --mask_type '{}' --output_dir {}"
+			mask_type = mask_types[np.random.randint(0, len(mask_types))]
+
+			cmd = cmd.format(mask_the_face_folder, img_file, mask_type, output_dir)
+
+			os.system(cmd)
+
+
 	def register(self, name, video=None):
 		videoSrc = self.camera_index
 		if(video is not None):
@@ -233,6 +246,7 @@ class FaceRecognizer(object):
 		face_images = []
 		id_dir = os.path.join(self.registration_folder, name)
 		img_dir = os.path.join(id_dir, 'imgs')
+		masked_dir = os.path.join(id_dir, 'masked')
 
 		if(not os.path.exists(id_dir)):
 			print('[INFO] Creating ID directory ... ')
@@ -241,6 +255,10 @@ class FaceRecognizer(object):
 		if(not os.path.exists(img_dir)):
 			print('[INFO] Creating images directory ... ')
 			os.mkdir(img_dir)
+
+		if(not os.path.exists(masked_dir)):
+			print('[INFO] Creating masked images directory ... ')
+			os.mkdir(masked_dir)
 
 		while(True):
 			ret, frame = vid.read()
@@ -295,6 +313,9 @@ class FaceRecognizer(object):
 				print('[INFO] Saved normalized embeddings to %s' % os.path.join(id_dir, '%s.npy' % name))
 		else:
 			print('[INFO] Not enough frames registered ... ')
+
+		print('[INFO] Creating masked images folder ...')
+		self._register_with_mask(img_dir, masked_dir)
 
 		print('[INFO] Reinitializing ... ')
 		self.__init__()
