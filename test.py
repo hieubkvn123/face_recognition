@@ -10,12 +10,23 @@ from models import facenet
 from sklearn.decomposition import PCA
 
 base_path = os.path.dirname(os.path.realpath(__file__))
-facenet.load_weights(os.path.join(base_path, 'model_94k_faces_glintasia_without_norm.hdf5'))
+facenet.load_weights(os.path.join(base_path, 'model_94k_faces_glintasia_without_norm_.hdf5'))
 facenet = tf.keras.models.Model(inputs=facenet.inputs[0], outputs=facenet.get_layer('emb_output').output)
+
+def neutralize_image(img):
+    r,g,b = cv2.split(img)
+    r = cv2.equalizeHist(r)
+    g = cv2.equalizeHist(g)
+    b = cv2.equalizeHist(b)
+
+    rgb = cv2.merge((r,g,b))
+    return rgb
 
 def preprocessing(img):
     img = cv2.resize(img, (170, 170))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = neutralize_image(img)
+
     img = (img - 127.5) / 127.5
 
     return img
@@ -27,13 +38,14 @@ for (dir_, dirs, files) in os.walk(datadir):
     if(dir_ != datadir):
         label = dir_.split('/')[-1]
         for file_ in files:
-            abs_path = os.path.join(dir_, file_)
-            print('Preprocessing file %s' % abs_path)
-            img = cv2.imread(abs_path)
-            img = preprocessing(img)
+            if(file_.endswith('.jpg')):
+                abs_path = os.path.join(dir_, file_)
+                print('Preprocessing file %s' % abs_path)
+                img = cv2.imread(abs_path)
+                img = preprocessing(img)
 
-            images.append(img)
-            labels.append(label)
+                images.append(img)
+                labels.append(label)
 
 
 images = np.array(images)

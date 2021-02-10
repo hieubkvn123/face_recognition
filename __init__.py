@@ -1,7 +1,10 @@
 import os
+import sys
 import cv2
 import glob
 import time
+import shutil
+import traceback
 import numpy as np
 import tensorflow as tf
 
@@ -9,6 +12,7 @@ from imutils.video import WebcamVideoStream
 from scipy.spatial.distance import cdist
 
 from .clf import EmbeddingClassifier
+from .mask_utils import MaskDetector
 from .models import facenet
 from .detect_utils import detect_and_align
 
@@ -28,10 +32,10 @@ def get_threshold(embs, labels, distance='cosine'):
 	return sigmas
 
 class FaceRecognizer(object):
-	def __init__(self, registration_folder=None):
+	def __init__(self, registration_folder=None, camera_index=0, camera_flip=False, detect_mask=True):
 		global facenet
 		base_path = os.path.dirname(os.path.realpath(__file__))
-		weights_path = os.path.join(base_path, 'model_94k_faces_glintasia_without_norm.hdf5')
+		weights_path = os.path.join(base_path, 'model_94k_faces_glintasia_without_norm_.hdf5')
 
 		print('[INFO] Loading model ... ')
 		facenet.load_weights(weights_path)
@@ -39,8 +43,12 @@ class FaceRecognizer(object):
 			self.clf = EmbeddingClassifier(registration_folder=registration_folder)
 		except:
 			print('[INFO] Not enough idx to create classifier ... ')
+		self.camera_index = camera_index
+		self.camera_flip = camera_flip
+		self.detect_mask = detect_mask
 
 		self.model = tf.keras.models.Model(inputs=facenet.inputs[0], outputs=facenet.get_layer('emb_output').output)
+		self.mask_detector = MaskDetector()
 
 		if(registration_folder is None):
 			self.registration_folder = os.path.join(base_path, 'identities')
@@ -70,9 +78,21 @@ class FaceRecognizer(object):
 		if(len(np.unique(self.labels)) >= 2):
 			self.sigmas = get_threshold(self.embeddings, self.labels)
 
+	def _histogram_equalization(self, image):
+		r, g, b = cv2.split(image)
+		r = cv2.equalizeHist(r)
+		g = cv2.equalizeHist(g)
+		b = cv2.equalizeHist(b)
+
+		rgb = cv2.merge((r, g, b))
+
+		return rgb
+
 	def _face_preprocessing(self, image, size=(170, 170)):
 		image = cv2.resize(image, size)
 		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+		image = self._histogram_equalization(image)
+
 		image = (image - 127.5) / 127.5
 
 		return image
@@ -133,8 +153,8 @@ class FaceRecognizer(object):
 		return identity
 
 	def start_standalone_app(self, video=None):
-		videoSrc = 0
-		vs = WebcamVideoStream(src=videoSrc).start()
+		videoSrc = self.camera_index
+		vs = WebcamVideoStream(src=2).start()
 
 		if(video is not None):
 			videoSrc = video 
@@ -144,8 +164,9 @@ class FaceRecognizer(object):
 			if(video is not None):
 				ret, frame = vs.read()
 			else:
-				frame = vs.read() 
-			if(video is None):
+				frame = vs.read()
+
+			if(video is None and self.camera_flip):
 				frame = cv2.flip(frame, flipCode=1)
 				frame = cv2.flip(frame, flipCode=0)
 
@@ -153,8 +174,13 @@ class FaceRecognizer(object):
 			try:
 				faces, locations = detect_and_align(frame)
 				for face, location in zip(faces, locations):
+					bounding_box_color = (0,255,0)
 					x1, y1, x2, y2 = location 
-					cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 1)
+					mask = self.mask_detector.predict(face)
+					if(mask == 'No Mask'):
+						bounding_box_color = (0,0,255)
+
+					cv2.rectangle(frame, (x1, y1), (x2, y2), bounding_box_color, 1)
 
 					### Check image quality ###
 					blur_ = self._is_blur(face)
@@ -177,7 +203,7 @@ class FaceRecognizer(object):
 					cv2.putText(frame, label, (x1,y1), cv2.FONT_HERSHEY_DUPLEX, 0.5, color, 2)
 
 			except:
-				print(frame)	
+				traceback.print_exc(file=sys.stdout)
 
 			cv2.imshow('Frame', frame)
 			key = cv2.waitKey(1)
@@ -187,8 +213,16 @@ class FaceRecognizer(object):
 		vs.stop()
 		cv2.destroyAllWindows()
 
+	def deregister(self, name):
+		full_path = os.path.join(self.registration_folder, name)
+		if(not os.path.exists(full_path)):
+			print('[INFO] ID not exists : %s ' % full_path)
+		else:
+			shutil.rmtree(full_path)
+			print('[INFO] ID at %s is removed ... ' % full_path)
+
 	def register(self, name, video=None):
-		videoSrc = 0
+		videoSrc = self.camera_index
 		if(video is not None):
 			videoSrc = video 
 
@@ -210,7 +244,7 @@ class FaceRecognizer(object):
 
 		while(True):
 			ret, frame = vid.read()
-			if(video is None):
+			if(video is None and self.camera_flip):
 				frame = cv2.flip(frame, flipCode=1)
 				frame = cv2.flip(frame, flipCode=0)
 
@@ -269,6 +303,6 @@ class FaceRecognizer(object):
 
 		### Rebuild the classifier ###
 		try:
-			self.clf = EmbeddingClassifier(registration_folder=registration_folder)
+			self.clf = EmbeddingClassifier(registration_folder=self.registration_folder)
 		except:
 			print('[INFO] Not enough idx to create classifier ... ')
