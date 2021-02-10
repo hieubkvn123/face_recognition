@@ -77,12 +77,12 @@ class FaceRecognizer(object):
 
 		return image
 
-	def _is_blur(self, image, threshold=160):
+	def _is_blur(self, image, threshold=120):
 		return cv2.Laplacian(image, cv2.CV_64F).var() < threshold
 
 	def _is_bad_lighting(self, image):
 		bright_thres = 0.5
-		dark_thres = 0.3
+		dark_thres = 0.2
 		gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 		dark_part = cv2.inRange(gray, 0, 60)
 		bright_part = cv2.inRange(gray, 200, 255)
@@ -133,7 +133,7 @@ class FaceRecognizer(object):
 		return identity
 
 	def start_standalone_app(self, video=None):
-		videoSrc = 2
+		videoSrc = 0
 		vs = WebcamVideoStream(src=videoSrc).start()
 
 		if(video is not None):
@@ -145,9 +145,9 @@ class FaceRecognizer(object):
 				ret, frame = vs.read()
 			else:
 				frame = vs.read() 
-			#if(video is None):
-			#	frame = cv2.flip(frame, flipCode=1)
-			#	frame = cv2.flip(frame, flipCode=0)
+			if(video is None):
+				frame = cv2.flip(frame, flipCode=1)
+				frame = cv2.flip(frame, flipCode=0)
 
 			# if(frame is None): continue
 			try:
@@ -188,7 +188,7 @@ class FaceRecognizer(object):
 		cv2.destroyAllWindows()
 
 	def register(self, name, video=None):
-		videoSrc = 2
+		videoSrc = 0
 		if(video is not None):
 			videoSrc = video 
 
@@ -210,9 +210,9 @@ class FaceRecognizer(object):
 
 		while(True):
 			ret, frame = vid.read()
-			#if(video is None):
-			#	frame = cv2.flip(frame, flipCode=1)
-			#	frame = cv2.flip(frame, flipCode=0)
+			if(video is None):
+				frame = cv2.flip(frame, flipCode=1)
+				frame = cv2.flip(frame, flipCode=0)
 
 			### Detection and alignment ###
 			faces, locations = detect_and_align(frame)
