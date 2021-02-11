@@ -48,7 +48,7 @@ class FaceRecognizer(object):
 		self.detect_mask = detect_mask
 
 		self.model = tf.keras.models.Model(inputs=facenet.inputs[0], outputs=facenet.get_layer('emb_output').output)
-		self.mask_detector = MaskDetector()
+		self.mask_detector = MaskDetector(base_path)
 
 		if(registration_folder is None):
 			self.registration_folder = os.path.join(base_path, 'identities')

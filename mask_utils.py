@@ -10,8 +10,8 @@ from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.layers import *
 
 class MaskDetector(object):
-	def __init__(self, model_file='mask_detector.model', weights_file='mask_detector.weights'):
-		self.base_path = os.path.dirname(os.path.realpath(__file__))
+	def __init__(self, base_path, model_file='mask_detector.model', weights_file='mask_detector.weights'):
+		self.base_path = base_path
 		self.model_file = os.path.join(self.base_path, model_file) 
 		self.weights_file = os.path.join(self.base_path, weights_file)
 
