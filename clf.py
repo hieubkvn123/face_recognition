@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 
 from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
@@ -76,7 +77,10 @@ class EmbeddingClassifier(object):
 	def _train(self, embeddings, labels):
 		X_train, X_test, Y_train, Y_test = train_test_split(embeddings, labels, test_size=0.333)
 
-		self.model = SVC(kernel='rbf', probability=True)
+		if(not self.mask):
+			self.model = SVC(kernel='rbf', probability=True)
+		else:
+			self.model = RandomForestClassifier(n_estimators=1000)
 		self.model.fit(X_train, Y_train)
 
 		test_pred = self.model.predict(X_test)

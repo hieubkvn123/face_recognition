@@ -35,7 +35,7 @@ class FaceRecognizer(object):
 	def __init__(self, registration_folder=None, camera_index=0, camera_flip=False, detect_mask=True):
 		global facenet
 		base_path = os.path.dirname(os.path.realpath(__file__))
-		weights_path = os.path.join(base_path, 'model_94k_faces_glintasia_without_norm_.hdf5')
+		weights_path = os.path.join(base_path, 'model_94k_faces_glintasia_without_norm.hdf5')
 
 		print('[INFO] Loading model ... ')
 		facenet.load_weights(weights_path)
@@ -178,7 +178,7 @@ class FaceRecognizer(object):
 
 	def start_standalone_app(self, video=None):
 		videoSrc = self.camera_index
-		vs = WebcamVideoStream(src=2).start()
+		vs = WebcamVideoStream(src=videoSrc).start()
 
 		if(video is not None):
 			videoSrc = video 
