@@ -8,7 +8,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 class EmbeddingClassifier(object):
-	def __init__(self, registration_folder=None, model_path='clf.pickle'):
+	def __init__(self, registration_folder=None, model_path='clf.pickle', mask=False):
 		super(EmbeddingClassifier, self).__init__()
 		self.base_path = os.path.dirname(os.path.realpath(__file__))
 		self.model_path = os.path.join(self.base_path, model_path)
@@ -21,23 +21,40 @@ class EmbeddingClassifier(object):
 		self.embeddings = np.array([])
 		self.labels = np.array([])
 
+		self.mask = mask
+
 		id_count = 0
 		for (dir_, dirs, files) in os.walk(self.registration_folder):
 			if(dir_ != self.registration_folder):
 				for file_ in files:
 					abs_path = os.path.join(dir_, file_)
-					if(abs_path.endswith('.npy')):
-						embeddings = np.load(abs_path)
-						labels = np.full(embeddings.shape[0], abs_path.split('/')[-1].split('.')[0])
 
-						if(id_count == 0):
-							self.embeddings = embeddings 
-							self.labels = labels
-						else:
-							self.embeddings = np.concatenate((self.embeddings, embeddings))
-							self.labels = np.concatenate((self.labels, labels))
+					if(not self.mask):
+						if(abs_path.endswith('.npy') and not abs_path.endswith('masked.npy')):
+							embeddings = np.load(abs_path)
+							labels = np.full(embeddings.shape[0], abs_path.split('/')[-1].split('.')[0])
 
-						id_count += 1
+							if(id_count == 0):
+								self.embeddings = embeddings 
+								self.labels = labels
+							else:
+								self.embeddings = np.concatenate((self.embeddings, embeddings))
+								self.labels = np.concatenate((self.labels, labels))
+
+							id_count += 1
+					else:
+						if(abs_path.endswith('masked.npy')):
+							embeddings = np.load(abs_path)
+							labels = np.full(embeddings.shape[0], abs_path.split('/')[-1].split('.')[0])
+
+							if(id_count == 0):
+								self.embeddings = embeddings 
+								self.labels = labels
+							else:
+								self.embeddings = np.concatenate((self.embeddings, embeddings))
+								self.labels = np.concatenate((self.labels, labels))
+
+							id_count += 1
 
 		self.embeddings = np.array(self.embeddings)
 		self.labels = np.array(self.labels)

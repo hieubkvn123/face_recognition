@@ -39,8 +39,13 @@ class FaceRecognizer(object):
 
 		print('[INFO] Loading model ... ')
 		facenet.load_weights(weights_path)
+
+		self.clf_no_mask_path = os.path.join(base_path, 'clf_no_mask.pickle')
+		self.clf_mask_path = os.path.join(base_path, 'clf_mask.pickle')
+
 		try:
-			self.clf = EmbeddingClassifier(registration_folder=registration_folder)
+			self.clf = EmbeddingClassifier(registration_folder=registration_folder, mask=False, model_path=self.clf_no_mask_path)
+			self.clf_mask = EmbeddingClassifier(registration_folder=registration_folder, mask=True, model_path=self.clf_mask_path)
 		except:
 			print('[INFO] Not enough idx to create classifier ... ')
 		self.camera_index = camera_index
@@ -58,25 +63,40 @@ class FaceRecognizer(object):
 		# self.model = facenet 
 		self.base_path = os.path.dirname(os.path.realpath(__file__))
 		self.embeddings = np.array([])
+		self.embeddings_masked = np.array([])
 		self.labels = np.array([])
+		self.labels_masked = np.array([])
 
 		print('[INFO] Loading identities ... ')
 		for i, idx in enumerate(glob.glob(self.registration_folder + '/*')):
 			label = os.path.basename(idx)
 
 			npy_path = os.path.join(idx, '%s.npy' % label)
+			npy_masked_path = os.path.join(idx, '%s_masked.npy' % label)
+
 			embeddings = np.load(npy_path)
+			embeddings_masked = np.load(npy_masked_path)
 			labels = np.full(embeddings.shape[0], label)
 
-			if(i == 0):
+			if(len(self.embeddings) == 0):
 				self.embeddings = embeddings
 			else:
 				self.embeddings = np.concatenate((self.embeddings, embeddings))
 			
+
+			if(len(self.embeddings_masked) == 0):
+				self.embeddings_masked = embeddings_masked
+			else:
+				self.embeddings_masked = np.concatenate((self.embeddings_masked, embeddings_masked))
+
 			self.labels = np.concatenate((self.labels, labels))
+			self.labels_masked = np.concatenate((self.labels_masked, labels))
 
 		if(len(np.unique(self.labels)) >= 2):
 			self.sigmas = get_threshold(self.embeddings, self.labels)
+
+		if(len(np.unique(self.labels_masked)) >= 2):
+			self.sigmas_masked = get_threshold(self.embeddings_masked, self.labels_masked)
 
 	def _histogram_equalization(self, image):
 		r, g, b = cv2.split(image)
@@ -121,17 +141,21 @@ class FaceRecognizer(object):
 
 		return bad_lighting
 
-	def clf_recognize(self, face):
+	def clf_recognize(self, face, masked=False):
 		''' Using the clf model to recognize '''
 		identity = 'Unknown'
 		### Get embeddings from face ###
 		embedding = self.model.predict(np.array([face]))
 		embedding = embedding / np.linalg.norm(embedding, axis=1).reshape(-1, 1)
 
-		label = self.clf.model.predict(embedding)[0]
-		probability = self.clf.model.predict_proba(embedding)[0]
-		probability = probability[np.argmax(probability)]
-
+		if(not masked):
+			label = self.clf.model.predict(embedding)[0]
+			probability = self.clf.model.predict_proba(embedding)[0]
+			probability = probability[np.argmax(probability)]
+		else:
+			label = self.clf_mask.model.predict(embedding)[0]
+			probability = self.clf_mask.model.predict_proba(embedding)[0]
+			probability = probability[np.argmax(probability)]
 		# print(label, probability)
 
 		return label, probability
@@ -177,8 +201,10 @@ class FaceRecognizer(object):
 					bounding_box_color = (0,255,0)
 					x1, y1, x2, y2 = location 
 					mask = self.mask_detector.predict(face)
+					masked = True
 					if(mask == 'No Mask'):
 						bounding_box_color = (0,0,255)
+						masked = False
 
 					cv2.rectangle(frame, (x1, y1), (x2, y2), bounding_box_color, 1)
 
@@ -193,7 +219,7 @@ class FaceRecognizer(object):
 						label = 'BAD_LIGHTING'
 					else:
 						if(self.clf is not None):
-							label, probability = self.clf_recognize(self._face_preprocessing(face))
+							label, probability = self.clf_recognize(self._face_preprocessing(face), masked=masked)
 							label = '%s - %.2f' % (label, probability)
 						else:
 							label = self.recognize(self._face_preprocessing(face))
@@ -335,7 +361,10 @@ class FaceRecognizer(object):
 		cv2.destroyAllWindows()
 
 		### Rebuild the classifier ###
+		os.remove(self.clf_no_mask_path)
+		os.remove(self.clf_mask_path)
 		try:
-			self.clf = EmbeddingClassifier(registration_folder=self.registration_folder)
+			self.clf = EmbeddingClassifier(registration_folder=self.registration_folder, mask=False, model_path=self.clf_no_mask_path)
+			self.clf_mask = EmbeddingClassifier(registration_folder=self.registration_folder, mask=True, model_path=self.clf_mask_path)
 		except:
 			print('[INFO] Not enough idx to create classifier ... ')
