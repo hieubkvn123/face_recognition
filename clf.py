@@ -46,7 +46,7 @@ class EmbeddingClassifier(object):
 					else:
 						if(abs_path.endswith('masked.npy')):
 							embeddings = np.load(abs_path)
-							labels = np.full(embeddings.shape[0], abs_path.split('/')[-1].split('.')[0])
+							labels = np.full(embeddings.shape[0], abs_path.split('/')[-1].split('_')[0])
 
 							if(id_count == 0):
 								self.embeddings = embeddings 
@@ -80,7 +80,10 @@ class EmbeddingClassifier(object):
 		if(not self.mask):
 			self.model = SVC(kernel='rbf', probability=True)
 		else:
-			self.model = RandomForestClassifier(n_estimators=1000)
+			# self.model = RandomForestClassifier(n_estimators=1000)
+			# self.model = SVC(kernel='poly', C=0.5, probability=True)
+			self.model = SVC(kernel='rbf', C=0.5, probability=True)
+
 		self.model.fit(X_train, Y_train)
 
 		test_pred = self.model.predict(X_test)

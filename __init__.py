@@ -47,6 +47,7 @@ class FaceRecognizer(object):
 			self.clf = EmbeddingClassifier(registration_folder=registration_folder, mask=False, model_path=self.clf_no_mask_path)
 			self.clf_mask = EmbeddingClassifier(registration_folder=registration_folder, mask=True, model_path=self.clf_mask_path)
 		except:
+			traceback.print_exc(file=sys.stdout)
 			print('[INFO] Not enough idx to create classifier ... ')
 		self.camera_index = camera_index
 		self.camera_flip = camera_flip
