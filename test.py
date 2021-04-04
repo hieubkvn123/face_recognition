@@ -10,7 +10,8 @@ from models import facenet
 from sklearn.decomposition import PCA
 
 base_path = os.path.dirname(os.path.realpath(__file__))
-facenet.load_weights(os.path.join(base_path, 'model_94k_faces_glintasia_without_norm_.hdf5'))
+# facenet.load_weights(os.path.join(base_path, 'model_94k_faces_glintasia_without_norm_.hdf5'))
+facenet.load_weights(os.path.join(base_path, 'model_combined_glintasia_facesemore_without_norm.hdf5'))
 facenet = tf.keras.models.Model(inputs=facenet.inputs[0], outputs=facenet.get_layer('emb_output').output)
 
 def neutralize_image(img):

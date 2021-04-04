@@ -7,7 +7,7 @@ from tensorflow.keras import backend as K
 
 emb_shape = 512
 w_decay = 1e-4
-num_classes = 93979# 85742 # 5000
+num_classes = 179721 # 93979# 85742 # 5000
 
 class ArcFace(Layer):
     def __init__(self, n_classes=10, s=30.0, m=0.00050, regularizer=None, **kwargs):
