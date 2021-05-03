@@ -32,10 +32,13 @@ def get_threshold(embs, labels, distance='cosine'):
 	return sigmas
 
 class FaceRecognizer(object):
-	def __init__(self, registration_folder=None, camera_index=0, camera_flip=False, detect_mask=True):
+	def __init__(self, registration_folder=None, camera_index=0, 
+		camera_flip=False, detect_mask=True,
+		check_blur=True, check_light=True):
 		global facenet
 		base_path = os.path.dirname(os.path.realpath(__file__))
-		weights_path = os.path.join(base_path, 'model_94k_faces_glintasia_without_norm.hdf5')
+		# weights_path = os.path.join(base_path, 'model_94k_faces_glintasia_without_norm.hdf5')
+		weights_path = os.path.join(base_path, 'model_combined_glintasia_facesemore_without_norm.hdf5')
 
 		print('[INFO] Loading model ... ')
 		facenet.load_weights(weights_path)
@@ -52,6 +55,8 @@ class FaceRecognizer(object):
 		self.camera_index = camera_index
 		self.camera_flip = camera_flip
 		self.detect_mask = detect_mask
+		self.check_blur = check_blur
+		self.check_light = check_light
 
 		self.model = tf.keras.models.Model(inputs=facenet.inputs[0], outputs=facenet.get_layer('emb_output').output)
 		self.mask_detector = MaskDetector(base_path)
@@ -209,14 +214,17 @@ class FaceRecognizer(object):
 
 					cv2.rectangle(frame, (x1, y1), (x2, y2), bounding_box_color, 1)
 
+					blur_, bad_light_ = False, False
 					### Check image quality ###
-					blur_ = self._is_blur(face)
-					bad_light_ = self._is_bad_lighting(face)
+					if(self.check_blur):
+						blur_ = self._is_blur(face)
+					if(self.check_light):
+						bad_light_ = self._is_bad_lighting(face)
 
 					label = None
-					if(blur_):
+					if(blur_ and self.check_blur):
 						label = 'BLURRY'
-					elif(bad_light_):
+					elif(bad_light_ and self.check_light):
 						label = 'BAD_LIGHTING'
 					else:
 						if(self.clf is not None):
@@ -307,13 +315,17 @@ class FaceRecognizer(object):
 
 			### Detection and alignment ###
 			faces, locations = detect_and_align(frame)
+			blur_ = False
+			bad_light_ = False
 			
 			for face, location in zip(faces, locations):
 				cv2.imshow('Face (Aligned)', face)
 				x1, y1, x2, y2 = location 
 
-				blur_ = self._is_blur(face)
-				bad_light_ = self._is_bad_lighting(face)
+				if(self.check_blur):
+					blur_ = self._is_blur(face)
+				if(self.check_light):
+					bad_light_ = self._is_bad_lighting(face)
 
 				color = (0,255,0) if (blur_ != True) else (0,0,255) 
 				blur_condition = 'Good' if (blur_ != True) else 'Not good'
