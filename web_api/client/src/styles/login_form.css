@@ -1,0 +1,33 @@
+.form-container {
+	width : 40vw;
+	max-height: 60vh;
+	overflow: hidden;
+	padding : 12px;
+	text-align: left;
+	background-image : linear-gradient(135deg, indigo, cyan, pink);
+	border-radius : 25px;
+	box-shadow: 10px 25px #0000ff10;
+	position : absolute;
+	top : 50%;
+	right : 100px;
+	-ms-transform: translateY(-50%);
+  	transform: translateY(-50%);
+}
+
+.form-group {
+	margin : 12px;
+}
+
+.form-container button {
+	margin : 12px;
+}
+
+.login-label {
+	font-weight : bold;
+	font-size : 20px;
+	text-decoration: underline
+}
+
+h1, .form-container label {
+	color : plum;
+}
