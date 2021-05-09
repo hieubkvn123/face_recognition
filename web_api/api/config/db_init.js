@@ -46,8 +46,8 @@ const majors = [
 	new major({facultyID : 'BIO01', majorName : 'Biomedical Engineering (Computational biology robotics)'}),
 
 	new major({facultyID : 'CSE01', majorName : 'Computer Engineering'}),
-	new major({facultyID : 'BIO01', majorName : 'Computing and information system'}),
-	new major({facultyID : 'BIO01', majorName : 'Computing and Electrical Engineering'})
+	new major({facultyID : 'CSE01', majorName : 'Computing and information system'}),
+	new major({facultyID : 'CSE01', majorName : 'Computing and Electrical Engineering'})
 ];
 
 var insertRecordsFaculty = (async function() {
