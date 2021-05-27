@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # Import libraries
-
-# In[24]:
-
-
 import os
 import cv2
 import random
@@ -14,7 +6,9 @@ import matplotlib.pyplot as plt
 
 ### Other dependencies ###
 from PIL import Image
+from callbacks import CustomValidationCallback
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
 
 ### Tensorflow dependencies ###
 import tensorflow as tf
@@ -22,20 +16,22 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.regularizers import l2
 from tensorflow.keras.metrics import MeanIoU
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 from tensorflow.keras.losses import MeanSquaredError, BinaryCrossentropy
 
 ### Some constants ###
-train_dir = "/home/minhhieu/Desktop/Hieu/datasets/GTSDB/TrainIJCNN2013/TrainIJCNN2013"
+# train_dir = "/home/minhhieu/Desktop/Hieu/datasets/GTSDB/TrainIJCNN2013/TrainIJCNN2013"
+train_dir = "/home/minhhieu/Desktop/Hieu/datasets/RoadSignDetection/images"
 test_dir = "/home/minhhieu/Desktop/Hieu/datasets/GTSDB/TestIJCNN2013/TestIJCNN2013Download"
 pnet_weights = "weights/pnet.weights.hdf5"
 
+validation_size = 0.2
+epochs = 2500
+batch_size = 16
+
 # # Load and explore dataset
-
-# In[2]:
-
-
 def load_raw_dataset(dataset_dir, gt_file, delimiter=';'):
     '''
         This function will take in a dataset directory with ppm images (according to the DTSDB dataset)
@@ -80,10 +76,6 @@ plt.show()
 
 
 # ### Generating negative samples (samples without traffic signs)
-
-# In[3]:
-
-
 def generate_neg_samples(raw_dataset, crop_size=(48, 48)):
     '''
         This function will generate croppings of fixed size without any traffic sign
@@ -128,10 +120,6 @@ plt.show()
 
 
 # ### Generate positive samples (samles with traffic signs)
-
-# In[4]:
-
-
 def generate_pos_samples(raw_dataset, pad_range=(10, 100), img_size=48):
     '''
         This function will generate croppings with traffic signs
@@ -167,6 +155,59 @@ def generate_pos_samples(raw_dataset, pad_range=(10, 100), img_size=48):
     print(f'[INFO] {len(pos_samples)} positive samples generated ... ')
     return np.array(pos_samples)
 
+def get_custom_bbox_regression_loss(reduction='sum', batch_size=16):
+    def custom_bbox_regression_loss(y_true, y_pred, reduction=reduction, batch_size=batch_size):
+        '''
+            This function customize bounding box regression loss by taking sum of the 
+            l2 loss of the top left corner coordinates and the log of the ration between
+            predicted and ground truth width/height.
+
+            Params :
+                - y_true : ground truth bounding boxes.
+                - y_pred : predicted bounding boxes.
+
+            Return :
+                - loss : custom bbox regression loss
+        '''
+        def get_mask(batch_size, col_id=0):
+            a = np.zeros((batch_size, 4), dtype=np.float32)
+            a[:, col_id] = 1
+            a = tf.convert_to_tensor(a)
+
+            return a
+
+        y_true = tf.reshape(y_true, [-1, 4])
+        y_pred = tf.reshape(y_pred, [-1, 4])
+
+        if(reduction == 'sum'):
+            reduction = K.sum
+        elif(reduction == 'mean'):
+            reduction = K.mean
+        else:
+            reduction = K.mean
+
+        if(isinstance(y_true, np.ndarray) and isinstance(y_pred, np.ndarray)):
+            x_gt, y_gt, w_gt, h_gt = y_true[:,0], y_true[:,1], y_true[:,2], y_true[:,3]
+            x_pr, y_pr, w_pr, h_pr = y_pred[:,0], y_pred[:,1], y_pred[:,2], y_pred[:,3]
+        else:
+            x_gt = K.sum(tf.multiply(y_true, get_mask(batch_size, col_id=0)), axis=1, keepdims=True) 
+            y_gt = K.sum(tf.multiply(y_true, get_mask(batch_size, col_id=1)), axis=1, keepdims=True) 
+            w_gt = K.sum(tf.multiply(y_true, get_mask(batch_size, col_id=2)), axis=1, keepdims=True) 
+            h_gt = K.sum(tf.multiply(y_true, get_mask(batch_size, col_id=3)), axis=1, keepdims=True) 
+                                                      
+            x_pr = K.sum(tf.multiply(y_pred, get_mask(batch_size, col_id=0)), axis=1, keepdims=True) 
+            y_pr = K.sum(tf.multiply(y_pred, get_mask(batch_size, col_id=1)), axis=1, keepdims=True) 
+            w_pr = K.sum(tf.multiply(y_pred, get_mask(batch_size, col_id=2)), axis=1, keepdims=True) 
+            h_pr = K.sum(tf.multiply(y_pred, get_mask(batch_size, col_id=3)), axis=1, keepdims=True) 
+       
+        l2_loss = reduction((x_gt - x_pr) ** 2) + reduction((y_gt - y_pr) ** 2)
+        log_loss = reduction(K.binary_crossentropy(w_gt, w_pr)) + reduction(K.binary_crossentropy(h_gt, h_pr))
+        loss = l2_loss + log_loss
+
+        return loss
+
+    return custom_bbox_regression_loss
+
 pos_samples = generate_pos_samples(raw_dataset, pad_range=(5, 50), img_size=48)
 
 img, gt, label = pos_samples[6]
@@ -180,53 +221,55 @@ plt.show()
 
 
 # ### Combine negative and positive samples to form training dataset
-
-# In[5]:
-
-
 # Concatenate two groups and shuffle
 train_dataset = np.concatenate([pos_samples, neg_samples])
 np.random.shuffle(train_dataset)
 
-train_images = np.array([x[0] for x in train_dataset])
-train_bboxes = np.array([x[1] for x in train_dataset])
-train_labels = OneHotEncoder().fit_transform(train_dataset[:,2].reshape(-1, 1)).toarray()
+images = np.array([x[0] for x in train_dataset])
+bboxes = np.array([x[1] for x in train_dataset])
+labels = OneHotEncoder().fit_transform(train_dataset[:,2].reshape(-1, 1)).toarray()
 
-train_bboxes = train_bboxes.reshape(-1, 1, 1, 4)
-train_labels = train_labels.reshape(-1, 1, 1, 2)
+bboxes = bboxes.reshape(-1, 1, 1, 4)
+labels = labels.reshape(-1, 1, 1, 2)
 
-train_images = ((train_images - 127.5) / 127.5).astype('float32')
-train_bboxes = train_bboxes.astype('float32')
-train_labels = train_labels.astype('float32')
+images = ((images - 127.5) / 127.5).astype('float32')
+bboxes = bboxes.astype('float32')
+labels = labels.astype('float32')
 
+dataset_size = images.shape[0]
+train_size = int(dataset_size * (1 - validation_size))
+
+train_images = images[:train_size]
+train_bboxes = bboxes[:train_size]
+train_labels = labels[:train_size]
+
+val_images = images[train_size:]
+val_bboxes = bboxes[train_size:]
+val_labels = labels[train_size:]
 
 # # Implement P-Net architecture
-
-# In[6]:
-
-
 def build_pnet_model():
     inputs = Input(shape=(None, None, 3))
-    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid")(inputs)
+    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(inputs)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
     # p_layer = BatchNormalization()(p_layer)
     p_layer = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="same")(p_layer)
 
-    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid")(p_layer)
+    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
     # p_layer = BatchNormalization()(p_layer)
     p_layer = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="same")(p_layer)
 
-    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid")(p_layer)
+    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
     # p_layer = BatchNormalization()(p_layer)
     p_layer = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="same")(p_layer)
     
-    p_layer = Conv2D(16, kernel_size=(3, 3), strides=(1, 1), padding="valid")(p_layer)
+    p_layer = Conv2D(16, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
     # p_layer = BatchNormalization()(p_layer)
     
-    p_layer = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid")(p_layer)
+    p_layer = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
 
     p_layer_out1 = Conv2D(2, kernel_size=(1, 1), strides=(1, 1))(p_layer)
@@ -240,25 +283,31 @@ def build_pnet_model():
 
 pnet = build_pnet_model()
 print(pnet.summary())
-# print(pnet(tf.random.normal((1,48,48,3))))
-
 
 # # Start training
-
-# In[27]:
-
-
 losses = {
     'probability' : BinaryCrossentropy(),
-    'bbox_regression' : MeanSquaredError(reduction=tf.keras.losses.Reduction.SUM)
+    'bbox_regression' : get_custom_bbox_regression_loss(reduction='sum') # MeanSquaredError(reduction=tf.keras.losses.Reduction.SUM)
 }
 
-y = {
+y_train = {
     'probability' : train_labels,
     'bbox_regression' : train_bboxes
 }
 
+y_val = {
+    'probability' : val_labels,
+    'bbox_regression' : val_bboxes
+}
+
+train_dataset = tf.data.Dataset.from_tensor_slices((train_images, y_train))
+train_dataset = train_dataset.batch(16, drop_remainder=True)
+
+val_dataset = tf.data.Dataset.from_tensor_slices((val_images, y_val))
+val_dataset = val_dataset.batch(16, drop_remainder=True)
+
 print(train_labels.shape, train_bboxes.shape)
+print(val_labels.shape, val_bboxes.shape)
 pnet.compile(optimizer=Adam(lr=0.00001, amsgrad=True),
             loss=losses,
             metrics={'probability':'accuracy'})
@@ -268,10 +317,11 @@ if(os.path.exists(pnet_weights)):
     pnet.load_weights(pnet_weights)
 
 epochs = 2500
+# validation_callback = CustomValidationCallback(val_dataset, get_custom_bbox_regression_loss(reduction='sum'), BinaryCrossentropy(), validation_steps=30)
 tensorboard = TensorBoard(log_dir="./logs")
 checkpoint = ModelCheckpoint('weights/pnet.weights.hdf5', save_weights_only=True, verbose=1)
-early_stop = EarlyStopping(monitor='bbox_regression_loss', patience=50, verbose=0)
-history = pnet.fit(train_images, y, epochs=epochs, batch_size=16, validation_split=0.2, callbacks=[tensorboard, checkpoint])
+early_stop = EarlyStopping(monitor='val_bbox_regression_loss', patience=20, verbose=0)
+history = pnet.fit(train_dataset, epochs=epochs, validation_data=val_dataset, validation_batch_size=batch_size, callbacks=[tensorboard, checkpoint])
 
 
 # # Test P-Net proposals
@@ -292,8 +342,8 @@ def __nms(boxes, s, threshold, method):
 
     x1 = boxes[:, 0]
     y1 = boxes[:, 1]
-    x2 = boxes[:, 2]
-    y2 = boxes[:, 3]
+    x2 = boxes[:, 2] - x1
+    y2 = boxes[:, 3] - y1 
 
     area = (x2 - x1 + 1) * (y2 - y1 + 1)
     sorted_s = np.argsort(s)
@@ -326,10 +376,6 @@ def __nms(boxes, s, threshold, method):
     pick = pick[0:counter]
 
     return pick
-
-
-# In[22]:
-
 
 threshold = 0.99
 nms_threshold = 0.5
