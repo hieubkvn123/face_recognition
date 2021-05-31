@@ -29,7 +29,11 @@ pnet_weights = "weights/pnet.weights.hdf5"
 
 validation_size = 0.2
 epochs = 2500
-batch_size = 16
+batch_size = 8
+epochs = 2500
+tensorboard = TensorBoard(log_dir="./logs")
+checkpoint = ModelCheckpoint('weights/pnet.weights.hdf5', save_weights_only=True, verbose=1)
+early_stop = EarlyStopping(monitor='val_bbox_regression_loss', patience=20, verbose=0)
 
 # # Load and explore dataset
 def load_raw_dataset(dataset_dir, gt_file, delimiter=';'):
@@ -114,7 +118,7 @@ def generate_neg_samples(raw_dataset, crop_size=(48, 48)):
     print(f'[INFO] {len(neg_samples)} negative samples generated ... ')
     return np.array(neg_samples)
 
-neg_samples = generate_neg_samples(raw_dataset, crop_size=(48,48))
+neg_samples = generate_neg_samples(raw_dataset, crop_size=(12,12))
 plt.imshow(neg_samples[1][0].copy())
 plt.show()
 
@@ -202,13 +206,14 @@ def get_custom_bbox_regression_loss(reduction='sum', batch_size=16):
        
         l2_loss = reduction((x_gt - x_pr) ** 2) + reduction((y_gt - y_pr) ** 2)
         log_loss = reduction(K.binary_crossentropy(w_gt, w_pr)) + reduction(K.binary_crossentropy(h_gt, h_pr))
+        # log_loss = reduction((K.sqrt(w_gt) - K.sqrt(w_pr)) ** 2) + reduction((K.sqrt(h_gt) - K.sqrt(h_pr))**2)
         loss = l2_loss + log_loss
 
         return loss
 
     return custom_bbox_regression_loss
 
-pos_samples = generate_pos_samples(raw_dataset, pad_range=(5, 50), img_size=48)
+pos_samples = generate_pos_samples(raw_dataset, pad_range=(5, 50), img_size=12)
 
 img, gt, label = pos_samples[6]
 img = img.copy()
@@ -232,6 +237,7 @@ labels = OneHotEncoder().fit_transform(train_dataset[:,2].reshape(-1, 1)).toarra
 bboxes = bboxes.reshape(-1, 1, 1, 4)
 labels = labels.reshape(-1, 1, 1, 2)
 
+print(images.shape)
 images = ((images - 127.5) / 127.5).astype('float32')
 bboxes = bboxes.astype('float32')
 labels = labels.astype('float32')
@@ -248,29 +254,21 @@ val_bboxes = bboxes[train_size:]
 val_labels = labels[train_size:]
 
 # # Implement P-Net architecture
-def build_pnet_model():
+def build_pnet_model(batch_norm=True, dropout=False):
     inputs = Input(shape=(None, None, 3))
+    
     p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(inputs)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
-    # p_layer = BatchNormalization()(p_layer)
+    if(batch_norm) : p_layer = BatchNormalization()(p_layer)
     p_layer = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="same")(p_layer)
 
-    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
-    p_layer = PReLU(shared_axes=[1, 2])(p_layer)
-    # p_layer = BatchNormalization()(p_layer)
-    p_layer = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="same")(p_layer)
-
-    p_layer = Conv2D(10, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
-    p_layer = PReLU(shared_axes=[1, 2])(p_layer)
-    # p_layer = BatchNormalization()(p_layer)
-    p_layer = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding="same")(p_layer)
-    
     p_layer = Conv2D(16, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
-    # p_layer = BatchNormalization()(p_layer)
-    
+    if(batch_norm) : p_layer = BatchNormalization()(p_layer)
+
     p_layer = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(p_layer)
     p_layer = PReLU(shared_axes=[1, 2])(p_layer)
+    if(dropout) : p_layer = Dropout(0.5)(p_layer)
 
     p_layer_out1 = Conv2D(2, kernel_size=(1, 1), strides=(1, 1))(p_layer)
     p_layer_out1 = Softmax(axis=3, name='probability')(p_layer_out1)
@@ -281,13 +279,23 @@ def build_pnet_model():
 
     return p_net
 
-pnet = build_pnet_model()
+pnet = build_pnet_model(batch_norm=False, dropout=True)
 print(pnet.summary())
 
 # # Start training
-losses = {
+losses_1 = {
     'probability' : BinaryCrossentropy(),
-    'bbox_regression' : get_custom_bbox_regression_loss(reduction='sum') # MeanSquaredError(reduction=tf.keras.losses.Reduction.SUM)
+    'bbox_regression' : get_custom_bbox_regression_loss(batch_size=batch_size, reduction='sum')
+}
+
+losses_2 = {
+    'probability' : BinaryCrossentropy(),
+    'bbox_regression' : get_custom_bbox_regression_loss(batch_size=batch_size, reduction='mean') 
+}
+
+loss_weights = {
+    'probability' : 1.0,
+    'bbox_regression' : 0.5
 }
 
 y_train = {
@@ -301,108 +309,36 @@ y_val = {
 }
 
 train_dataset = tf.data.Dataset.from_tensor_slices((train_images, y_train))
-train_dataset = train_dataset.batch(16, drop_remainder=True)
+train_dataset = train_dataset.batch(batch_size, drop_remainder=True)
 
 val_dataset = tf.data.Dataset.from_tensor_slices((val_images, y_val))
-val_dataset = val_dataset.batch(16, drop_remainder=True)
-
-print(train_labels.shape, train_bboxes.shape)
-print(val_labels.shape, val_bboxes.shape)
-pnet.compile(optimizer=Adam(lr=0.00001, amsgrad=True),
-            loss=losses,
-            metrics={'probability':'accuracy'})
+val_dataset = val_dataset.batch(batch_size, drop_remainder=True)
 
 if(os.path.exists(pnet_weights)):
     print(f'[INFO] Loading pretrained weights from {pnet_weights}')
     pnet.load_weights(pnet_weights)
 
-epochs = 2500
-# validation_callback = CustomValidationCallback(val_dataset, get_custom_bbox_regression_loss(reduction='sum'), BinaryCrossentropy(), validation_steps=30)
-tensorboard = TensorBoard(log_dir="./logs")
-checkpoint = ModelCheckpoint('weights/pnet.weights.hdf5', save_weights_only=True, verbose=1)
-early_stop = EarlyStopping(monitor='val_bbox_regression_loss', patience=20, verbose=0)
-history = pnet.fit(train_dataset, epochs=epochs, validation_data=val_dataset, validation_batch_size=batch_size, callbacks=[tensorboard, checkpoint])
+### Schedule 1 ###
+print('[INFO] Begining schedule #1 ... ')
+pnet.compile(optimizer=Adam(lr=0.00001, amsgrad=True),
+            loss=losses_1,
+            loss_weights=loss_weights,
+            metrics={'probability':'accuracy'})
 
+history = pnet.fit(train_dataset, epochs=epochs//2, 
+        batch_size=batch_size, 
+        validation_data=val_dataset, validation_batch_size=batch_size, 
+        callbacks=[tensorboard, checkpoint])
 
-# # Test P-Net proposals
-def __nms(boxes, s, threshold, method):
-    """
-        Non Maximum Suppression.
+### Schedule  2 ###
+print('[INFO] Begining schedule #2 ...')
+pnet.compile(optimizer=Adam(lr=0.0000001, amsgrad=True),
+            loss=losses_2,
+            loss_weights=loss_weights,
+            metrics={'probability':'accuracy'})
 
-        Params:
-            @param boxes: np array with bounding boxes.
-            @param threshold:
-            @param method: NMS method to apply. Available values ('Min', 'Union')
-        
-        Return:
-            pick : An array of indices selected.
-    """
-    if boxes.size == 0:
-        return np.empty((0, 3))
-
-    x1 = boxes[:, 0]
-    y1 = boxes[:, 1]
-    x2 = boxes[:, 2] - x1
-    y2 = boxes[:, 3] - y1 
-
-    area = (x2 - x1 + 1) * (y2 - y1 + 1)
-    sorted_s = np.argsort(s)
-
-    pick = np.zeros_like(s, dtype=np.int16)
-    counter = 0
-    while sorted_s.size > 0:
-        i = sorted_s[-1]
-        pick[counter] = i
-        counter += 1
-        idx = sorted_s[0:-1]
-
-        xx1 = np.maximum(x1[i], x1[idx])
-        yy1 = np.maximum(y1[i], y1[idx])
-        xx2 = np.minimum(x2[i], x2[idx])
-        yy2 = np.minimum(y2[i], y2[idx])
-
-        w = np.maximum(0.0, xx2 - xx1 + 1)
-        h = np.maximum(0.0, yy2 - yy1 + 1)
-
-        inter = w * h
-
-        if method == 'Min':
-            o = inter / np.minimum(area[i], area[idx])
-        else:
-            o = inter / (area[i] + area[idx] - inter)
-
-        sorted_s = sorted_s[np.where(o <= threshold)]
-
-    pick = pick[0:counter]
-
-    return pick
-
-threshold = 0.99
-nms_threshold = 0.5
-raw_img = cv2.imread('test.png')
-img = (raw_img - 127.5) / 127.5
-height, width = img.shape[:2]
-
-bboxes = pnet.predict(np.array([img]))[1][0]
-confidence = pnet.predict(np.array([img]))[0][0]
-
-bboxes = bboxes.reshape(bboxes.shape[0] * bboxes.shape[1], 4)
-confidence = confidence.reshape(confidence.shape[0] * confidence.shape[1], 2)
-confidence = confidence[:,1].astype('float')
-
-candidate_windows = bboxes[confidence > threshold]
-confidence = confidence[confidence > threshold]
-
-boxes = []
-for window in candidate_windows:
-    x1, y1, w, h = np.multiply(window, np.array([width, height, width, height])).astype('int')
-    boxes.append([x1, y1, w, h])   
-
-pick = __nms(np.array(boxes), confidence, nms_threshold, 'Min')
-for i in pick:
-    x,y,w,h = boxes[i]
-    cv2.rectangle(raw_img, (x,y), (x+w, y+h), (0,255,0),2)
-
-plt.imshow(raw_img)
-plt.savefig('test_result.png')
+history = pnet.fit(train_dataset, initial_epoch=epochs//2,
+        epochs=epochs//2 , batch_size=batch_size, 
+        validation_data=val_dataset, validation_batch_size=batch_size, 
+        callbacks=[tensorboard, checkpoint])
 

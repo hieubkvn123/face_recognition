@@ -1,0 +1,32 @@
+2021-05-31 21:54:23.954854: I tensorflow/stream_executor/platform/default/dso_loader.cc:48] Successfully opened dynamic library libcudart.so.10.1
+Serving TensorBoard on localhost; to expose to the network, use a proxy or pass --bind_all
+TensorBoard 2.4.1 at http://localhost:8889/ (Press CTRL+C to quit)
+W0531 22:05:33.447710 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'train'
+W0531 22:05:33.448432 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'validation'
+W0531 23:42:27.126291 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0531 23:47:23.682831 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0531 23:53:00.522750 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'train'
+W0531 23:53:00.523069 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'validation'
+W0531 23:54:31.009289 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0531 23:55:26.295777 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0531 23:56:11.529672 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0531 23:57:52.029064 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0531 23:58:17.158154 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0531 23:59:12.426263 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:00:32.846718 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:01:03.003564 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:01:43.215164 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:02:48.535090 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:03:53.865441 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:04:54.183262 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:05:29.380501 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'train'
+W0601 00:05:29.380830 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'validation'
+W0601 00:09:50.782365 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:12:26.618060 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'train'
+W0601 00:12:26.618152 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'validation'
+W0601 00:18:13.449966 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'train'
+W0601 00:18:13.450302 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'validation'
+W0601 00:36:07.613969 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'train'
+W0601 00:36:07.614065 140573379684096 plugin_event_multiplexer.py:263] Deleting accumulator 'validation'
+W0601 00:36:52.858611 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
+W0601 00:41:04.130183 140573379684096 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
