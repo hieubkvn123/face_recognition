@@ -10,6 +10,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 ### Tensorflow dependencies ###
 import tensorflow as tf
+import tensorflow_addons as tfa
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 from tensorflow.keras import applications
@@ -109,7 +110,7 @@ def generate_neg_samples(raw_dataset, sample_per_img=3, crop_size=(48, 48)):
     print(f'[INFO] {len(neg_samples)} negative samples generated ... ')
     return np.array(neg_samples)
 
-neg_samples = generate_neg_samples(raw_dataset, sample_per_img=4, crop_size=input_dim[:2])
+neg_samples = generate_neg_samples(raw_dataset, sample_per_img=3, crop_size=input_dim[:2])
 
 # ### Generate positive samples (samles with traffic signs)
 def generate_pos_samples(raw_dataset, sample_per_img=2, pad_range=(10, 100), img_size=48):
@@ -212,7 +213,7 @@ def build_pnet_model(batch_norm=True, dropout=False):
 
 def build_rnet_model(batch_norm=True, dropout=False):
     inputs = Input(shape=(64, 64, 3))
-    
+
     r_layer = Conv2D(8, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(inputs)
     r_layer = PReLU(shared_axes=[1, 2])(r_layer)
     if(batch_norm) : r_layer = BatchNormalization()(r_layer)
@@ -232,21 +233,23 @@ def build_rnet_model(batch_norm=True, dropout=False):
     r_layer = PReLU(shared_axes=[1, 2])(r_layer)
     if(batch_norm) : r_layer = BatchNormalization()(r_layer)
     
-    r_layer = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(r_layer)
-    r_layer = PReLU(shared_axes=[1, 2])(r_layer)
-    if(batch_norm) : r_layer = BatchNormalization()(r_layer)
+    #r_layer = Conv2D(32, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(r_layer)
+    #r_layer = PReLU(shared_axes=[1, 2])(r_layer)
+    #if(batch_norm) : r_layer = BatchNormalization()(r_layer)
 
     r_layer = Conv2D(64, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_regularizer=l2(2e-4))(r_layer)
     r_layer = PReLU(shared_axes=[1, 2])(r_layer)
     if(dropout) : r_layer = Dropout(0.5)(r_layer)
 
-    r_layer_out1 = Conv2D(2, kernel_size=(1, 1), strides=(1, 1))(r_layer)
-    r_layer_out1 = Softmax(axis=3)(r_layer_out1)
+    # r_layer_out1 = Conv2D(8, kernel_size=(1, 1), strides=(1, 1), kernel_regularizer=l2(2e-4))(r_layer)
+    r_layer_out1 = Flatten()(r_layer)
+    r_layer_out1 = Dense(2, activation='softmax', name='probability')(r_layer_out1)
 
-    r_layer_out2 = Conv2D(4, activation='sigmoid', kernel_size=(1, 1), strides=(1, 1))(r_layer)
-    
-    r_layer_out1 = Reshape(target_shape=(2,), name='probability')(r_layer_out1)
-    r_layer_out2 = Reshape(target_shape=(4,), name='bbox_regression')(r_layer_out2)
+    # r_layer_out2 = Conv2D(4, activation='sigmoid', kernel_size=(1, 1), strides=(1, 1))(r_layer)
+    # r_layer_out2 = Reshape(target_shape=(4,), name='bbox_regression')(r_layer_out2)
+    r_layer_out2 = Conv2D(8, kernel_size=(1, 1), strides=(1, 1), kernel_regularizer=l2(2e-4))(r_layer)
+    r_layer_out2 = Flatten()(r_layer_out2)
+    r_layer_out2 = Dense(4, activation='sigmoid', name='bbox_regression')(r_layer_out2)
 
     r_net = Model(inputs, [r_layer_out1, r_layer_out2], name='R-Net')
 

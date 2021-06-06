@@ -1,4 +1,0 @@
-2021-06-04 23:42:18.093515: I tensorflow/stream_executor/platform/default/dso_loader.cc:48] Successfully opened dynamic library libcudart.so.10.1
-W0604 23:42:18.847422 140608211871488 plugin_event_accumulator.py:320] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
-E0604 23:42:19.225217 140608841590592 program.py:311] TensorBoard could not bind to port 3004, it was already in use
-ERROR: TensorBoard could not bind to port 3004, it was already in use
